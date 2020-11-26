@@ -737,7 +737,8 @@ static int usb_find_hubs()
             /* Must have non empty container ID: */
             if (strlen(hubs[i].container_id) == 0)
                 continue;
-            int match = -1;
+            int best_match = -1;
+            int best_score = -1;
             for (j=0; j<hub_count; j++) {
                 if (i==j)
                     continue;
@@ -757,6 +758,10 @@ static int usb_find_hubs()
                 if (strcmp(hubs[i].container_id, hubs[j].container_id) != 0)
                     continue;
 
+                /* Hubs must have the same number of ports: */
+                if (hubs[i].nports != hubs[j].nports)
+                    continue;
+
                 /* At this point, it should be enough to claim a match.
                  * However, some devices use hardcoded non-unique container ID.
                  * We should do few more checks below if multiple such devices are present.
@@ -769,18 +774,39 @@ static int usb_find_hubs()
                     continue;
                 }
 
-                /* Hubs should have the same number of ports: */
-                if (hubs[i].nports != hubs[j].nports)
-                    continue;
+                /* We have first possible candidate, but need to keep looking for better one */
 
-                /* Finally, we claim a match: */
-                match = j;
-                break;
+                if (best_score < 1) {
+                    best_score = 1;
+                    best_match = j;
+                }
+
+                /* Check if hubs have port path that looks the same or overlapping (on USB2 and USB3 busses) */
+                char* p1 = strchr(hubs[i].location, '-');
+                char* p2 = strchr(hubs[j].location, '-');
+                if (p1 && p2) {
+                    char* p1s = strchr(hubs[i].location, '.');
+                    char* p2s = strchr(hubs[j].location, '.');
+                    /* Check if port path overlaps (e.g. Raspberry 4B): */
+                    if ((p1s && strcmp(p1s, p2)==0) || (p2s && strcmp(p1, p2s)==0)) {
+                        if (best_score < 2) {
+                            best_score = 2;
+                            best_match = j;
+                        }
+                    }
+                    /* Check if port path is the same: */
+                    if (strcmp(p1, p2)==0) {
+                        if (best_score < 3) {
+                            best_score = 3;
+                            best_match = j;
+                        }
+                    }
+                }
             }
-            if (match >= 0) {
-                if (!hubs[match].actionable) {
+            if (best_match >= 0) {
+                if (!hubs[best_match].actionable) {
                     /* Use 2 to signify that this is derived dual device */
-                    hubs[match].actionable = 2;
+                    hubs[best_match].actionable = 2;
                 }
             }
         }
