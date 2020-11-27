@@ -800,6 +800,15 @@ static int usb_find_hubs()
                             best_score = 3;
                             best_match = j;
                         }
+                        /* Give even higher priority when `usb2bus + 1 == usb3bus` */
+                        if ((atoi(hubs[i].location) + (hubs[i].bcd_usb < USB_SS_BCD)) ==
+                            (atoi(hubs[j].location) + (hubs[j].bcd_usb < USB_SS_BCD)))
+                        {
+                            if (best_score < 4) {
+                                best_score = 4;
+                                best_match = j;
+                            }
+                        }
                     }
                 }
             }
